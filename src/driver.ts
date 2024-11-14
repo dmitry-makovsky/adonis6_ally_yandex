@@ -1,18 +1,11 @@
 /*
 |--------------------------------------------------------------------------
-| Ally Oauth driver
+| Ally Yandex Oauth driver
 |--------------------------------------------------------------------------
 |
-| Make sure you through the code and comments properly and make necessary
-| changes as per the requirements of your implementation.
+| This is an Ally Oauth driver for authenticating users via Yandex.
 |
 */
-
-/**
-|--------------------------------------------------------------------------
- *  Search keyword "YourDriver" and replace it with a meaningful name
-|--------------------------------------------------------------------------
- */
 
 import { Oauth2Driver } from '@adonisjs/ally'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -24,35 +17,80 @@ import type { AllyDriverContract, AllyUserContract, ApiRequestContract } from '@
  * token must have "token" and "type" properties and you may
  * define additional properties (if needed)
  */
-export type YourDriverAccessToken = {
+
+export type YandexDriverAccessToken = {
   token: string
   type: 'bearer'
+
+  // Additional properties
+  avatar_id: string
+  birthday: string
+  display_name: string
+  email: string
+  exp: number
+  gender: string
+  login: string
+  name: string
+  id: number
+}
+
+/**
+ * Shape of the user returned by the Yandex driver implementation.
+ */
+export type YandexResponse = {
+  first_name: string
+  last_name: string
+  display_name: string
+  emails: string[]
+  default_email: string
+  default_phone: {
+    id: number
+    number: string
+  }
+  real_name: string
+  is_avatar_empty: boolean
+  birthday: string
+  default_avatar_id: string
+  login: string
+  old_social: string
+  sex: string
+  id: string
+  client_id: string
+  psuid: string
 }
 
 /**
  * Scopes accepted by the driver implementation.
  */
-export type YourDriverScopes = string
+export type YandexDriverScopes =
+  | 'login:avatar'
+  | 'login:birthday'
+  | 'login:email'
+  | 'login:info'
+  | 'login:default_phone'
 
 /**
  * The configuration accepted by the driver implementation.
  */
-export type YourDriverConfig = {
+export type YandexDriverConfig = {
+  driver: 'yandex'
   clientId: string
   clientSecret: string
   callbackUrl: string
   authorizeUrl?: string
   accessTokenUrl?: string
   userInfoUrl?: string
+
+  display_name_as_default?: boolean
 }
 
 /**
  * Driver implementation. It is mostly configuration driven except the API call
  * to get user info.
  */
-export class YourDriver
-  extends Oauth2Driver<YourDriverAccessToken, YourDriverScopes>
-  implements AllyDriverContract<YourDriverAccessToken, YourDriverScopes>
+export class YandexDriver
+  extends Oauth2Driver<YandexDriverAccessToken, YandexDriverScopes>
+  implements AllyDriverContract<YandexDriverAccessToken, YandexDriverScopes>
 {
   /**
    * The URL for the redirect request. The user will be redirected on this page
@@ -60,21 +98,21 @@ export class YourDriver
    *
    * Do not define query strings in this URL.
    */
-  protected authorizeUrl = ''
+  protected authorizeUrl = 'https://oauth.yandex.ru/authorize'
 
   /**
    * The URL to hit to exchange the authorization code for the access token
    *
    * Do not define query strings in this URL.
    */
-  protected accessTokenUrl = ''
+  protected accessTokenUrl = 'https://oauth.yandex.ru/token'
 
   /**
    * The URL to hit to get the user details
    *
    * Do not define query strings in this URL.
    */
-  protected userInfoUrl = ''
+  protected userInfoUrl = 'https://login.yandex.ru/info'
 
   /**
    * The param name for the authorization code. Read the documentation of your oauth
@@ -95,7 +133,7 @@ export class YourDriver
    * approach is to prefix the oauth provider name to `oauth_state` value. For example:
    * For example: "facebook_oauth_state"
    */
-  protected stateCookieName = 'YourDriver_oauth_state'
+  protected stateCookieName = 'YandexDriver_oauth_state'
 
   /**
    * Parameter name to be used for sending and receiving the state from.
@@ -117,7 +155,7 @@ export class YourDriver
 
   constructor(
     ctx: HttpContext,
-    public config: YourDriverConfig
+    public config: YandexDriverConfig
   ) {
     super(ctx, config)
 
@@ -135,7 +173,7 @@ export class YourDriver
    * is made by the base implementation of "Oauth2" driver and this is a
    * hook to pre-configure the request.
    */
-  // protected configureRedirectRequest(request: RedirectRequest<YourDriverScopes>) {}
+  // protected configureRedirectRequest(request: RedirectRequest<YandexDriverScopes>) {}
 
   /**
    * Optionally configure the access token request. The actual request is made by
@@ -161,9 +199,10 @@ export class YourDriver
    */
   async user(
     callback?: (request: ApiRequestContract) => void
-  ): Promise<AllyUserContract<YourDriverAccessToken>> {
+  ): Promise<AllyUserContract<YandexDriverAccessToken>> {
     const accessToken = await this.accessToken()
-    const request = this.httpClient(this.config.userInfoUrl || this.userInfoUrl)
+    const userInfoUrl = this.config.userInfoUrl || this.userInfoUrl
+    const request = this.makeHttpRequest(userInfoUrl, accessToken.token)
 
     /**
      * Allow end user to configure the request. This should be called after your custom
@@ -173,28 +212,58 @@ export class YourDriver
       callback(request)
     }
 
-    /**
-     * Write your implementation details here.
-     */
+    const userInfo = await request.get()
+    return {
+      ...this.makeGetUserInfo(userInfo),
+      token: accessToken,
+    }
   }
 
   async userFromToken(
     accessToken: string,
     callback?: (request: ApiRequestContract) => void
   ): Promise<AllyUserContract<{ token: string; type: 'bearer' }>> {
-    const request = this.httpClient(this.config.userInfoUrl || this.userInfoUrl)
+    const userInfoUrl = this.config.userInfoUrl || this.userInfoUrl
+    const userInfoRequest = this.httpClient(userInfoUrl)
 
     /**
      * Allow end user to configure the request. This should be called after your custom
      * configuration, so that the user can override them (if needed)
      */
     if (typeof callback === 'function') {
-      callback(request)
+      callback(userInfoRequest)
     }
 
-    /**
-     * Write your implementation details here
-     */
+    const userInfo: YandexResponse = await userInfoRequest.get()
+    return {
+      ...this.makeGetUserInfo(userInfo),
+      token: {
+        token: accessToken,
+        type: 'bearer',
+      },
+    }
+  }
+
+  protected makeHttpRequest(token: string, url: string) {
+    return this.httpClient(url)
+      .header('Authorization', `OAuth ${token}`)
+      .header('Accept', 'application/json')
+      .param('format', 'json')
+      .parseAs('json')
+  }
+
+  protected makeGetUserInfo(userInfo: YandexResponse) {
+    return {
+      id: userInfo.id,
+      name: userInfo.real_name,
+      email: userInfo.default_email,
+      nickName: userInfo.login,
+      emailVerificationState: 'unsupported' as const,
+      avatarUrl: !userInfo.is_avatar_empty
+        ? `https://avatars.yandex.net/get-yapic/${userInfo.default_avatar_id}/islands-200`
+        : null,
+      original: userInfo,
+    }
   }
 }
 
@@ -202,6 +271,8 @@ export class YourDriver
  * The factory function to reference the driver implementation
  * inside the "config/ally.ts" file.
  */
-export function YourDriverService(config: YourDriverConfig): (ctx: HttpContext) => YourDriver {
-  return (ctx) => new YourDriver(ctx, config)
+export function YandexDriverService(
+  config: YandexDriverConfig
+): (ctx: HttpContext) => YandexDriver {
+  return (ctx) => new YandexDriver(ctx, config)
 }
