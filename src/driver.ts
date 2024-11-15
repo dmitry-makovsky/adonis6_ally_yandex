@@ -7,149 +7,49 @@
 |
 */
 
-import { Oauth2Driver } from '@adonisjs/ally'
+import { Exception } from '@poppinss/utils'
 import type { HttpContext } from '@adonisjs/core/http'
-import type { AllyDriverContract, AllyUserContract, ApiRequestContract } from '@adonisjs/ally/types'
+import type { HttpClient } from '@poppinss/oauth-client'
+import type { YandexToken, YandexScopes, YandexDriverConfig } from './types.js'
+import { Oauth2Driver, type RedirectRequest, type ApiRequest } from '@adonisjs/ally'
+import type { ApiRequestContract } from '@adonisjs/ally/types'
 
 /**
- *
- * Access token returned by your driver implementation. An access
- * token must have "token" and "type" properties and you may
- * define additional properties (if needed)
+ * Yandex driver to login user via Yandex
  */
-
-export type YandexDriverAccessToken = {
-  token: string
-  type: 'bearer'
-
-  // Additional properties
-  avatar_id: string
-  birthday: string
-  display_name: string
-  email: string
-  exp: number
-  gender: string
-  login: string
-  name: string
-  id: number
-}
-
-/**
- * Shape of the user returned by the Yandex driver implementation.
- */
-export type YandexResponse = {
-  first_name: string
-  last_name: string
-  display_name: string
-  emails: string[]
-  default_email: string
-  default_phone: {
-    id: number
-    number: string
-  }
-  real_name: string
-  is_avatar_empty: boolean
-  birthday: string
-  default_avatar_id: string
-  login: string
-  old_social: string
-  sex: string
-  id: string
-  client_id: string
-  psuid: string
-}
-
-/**
- * Scopes accepted by the driver implementation.
- */
-export type YandexDriverScopes =
-  | 'login:avatar'
-  | 'login:birthday'
-  | 'login:email'
-  | 'login:info'
-  | 'login:default_phone'
-
-/**
- * The configuration accepted by the driver implementation.
- */
-export type YandexDriverConfig = {
-  driver: 'yandex'
-  clientId: string
-  clientSecret: string
-  callbackUrl: string
-  authorizeUrl?: string
-  accessTokenUrl?: string
-  userInfoUrl?: string
-
-  display_name_as_default?: boolean
-}
-
-/**
- * Driver implementation. It is mostly configuration driven except the API call
- * to get user info.
- */
-export class YandexDriver
-  extends Oauth2Driver<YandexDriverAccessToken, YandexDriverScopes>
-  implements AllyDriverContract<YandexDriverAccessToken, YandexDriverScopes>
-{
-  /**
-   * The URL for the redirect request. The user will be redirected on this page
-   * to authorize the request.
-   *
-   * Do not define query strings in this URL.
-   */
-  protected authorizeUrl = 'https://oauth.yandex.ru/authorize'
-
-  /**
-   * The URL to hit to exchange the authorization code for the access token
-   *
-   * Do not define query strings in this URL.
-   */
+export class YandexDriver extends Oauth2Driver<YandexToken, YandexScopes> {
   protected accessTokenUrl = 'https://oauth.yandex.ru/token'
-
-  /**
-   * The URL to hit to get the user details
-   *
-   * Do not define query strings in this URL.
-   */
+  protected authorizeUrl = 'https://oauth.yandex.ru/authorize'
   protected userInfoUrl = 'https://login.yandex.ru/info'
 
   /**
-   * The param name for the authorization code. Read the documentation of your oauth
-   * provider and update the param name to match the query string field name in
-   * which the oauth provider sends the authorization_code post redirect.
+   * The param name for the authorization code
    */
   protected codeParamName = 'code'
 
   /**
-   * The param name for the error. Read the documentation of your oauth provider and update
-   * the param name to match the query string field name in which the oauth provider sends
-   * the error post redirect
+   * The param name for the error
    */
   protected errorParamName = 'error'
 
   /**
-   * Cookie name for storing the CSRF token. Make sure it is always unique. So a better
-   * approach is to prefix the oauth provider name to `oauth_state` value. For example:
-   * For example: "facebook_oauth_state"
+   * Cookie name for storing the "yandex_oauth_state"
    */
-  protected stateCookieName = 'YandexDriver_oauth_state'
+  protected stateCookieName = 'yandex_oauth_state'
 
   /**
-   * Parameter name to be used for sending and receiving the state from.
-   * Read the documentation of your oauth provider and update the param
-   * name to match the query string used by the provider for exchanging
-   * the state.
+   * Parameter name to be used for sending and receiving the state
+   * from yandex
    */
   protected stateParamName = 'state'
 
   /**
-   * Parameter name for sending the scopes to the oauth provider.
+   * Parameter name for defining the scopes
    */
   protected scopeParamName = 'scope'
 
   /**
-   * The separator indentifier for defining multiple scopes
+   * Scopes separator
    */
   protected scopesSeparator = ' '
 
@@ -158,111 +58,124 @@ export class YandexDriver
     public config: YandexDriverConfig
   ) {
     super(ctx, config)
-
     /**
      * Extremely important to call the following method to clear the
-     * state set by the redirect request.
-     *
-     * DO NOT REMOVE THE FOLLOWING LINE
+     * state set by the redirect request
      */
     this.loadState()
   }
 
   /**
-   * Optionally configure the authorization redirect request. The actual request
-   * is made by the base implementation of "Oauth2" driver and this is a
-   * hook to pre-configure the request.
+   * Configuring the redirect request with defaults
    */
-  // protected configureRedirectRequest(request: RedirectRequest<YandexDriverScopes>) {}
+  protected configureRedirectRequest(request: RedirectRequest<YandexScopes>) {
+    /**
+     * Define user defined scopes or the default one's
+     */
+    request.scopes(this.config.scopes || ['login:email', 'login:info', 'login:avatar'])
 
-  /**
-   * Optionally configure the access token request. The actual request is made by
-   * the base implementation of "Oauth2" driver and this is a hook to pre-configure
-   * the request
-   */
-  // protected configureAccessTokenRequest(request: ApiRequest) {}
-
-  /**
-   * Update the implementation to tell if the error received during redirect
-   * means "ACCESS DENIED".
-   */
-  accessDenied() {
-    return this.ctx.request.input('error') === 'user_denied'
+    /**
+     * Set "response_type" param
+     */
+    request.param('response_type', 'code')
   }
 
   /**
-   * Get the user details by query the provider API. This method must return
-   * the access token and the user details both. Checkout the google
-   * implementation for same.
-   *
-   * https://github.com/adonisjs/ally/blob/develop/src/Drivers/Google/index.ts#L191-L199
+   * Returns the HTTP request with the authorization header set
    */
-  async user(
-    callback?: (request: ApiRequestContract) => void
-  ): Promise<AllyUserContract<YandexDriverAccessToken>> {
-    const accessToken = await this.accessToken()
-    const userInfoUrl = this.config.userInfoUrl || this.userInfoUrl
-    const request = this.makeHttpRequest(userInfoUrl, accessToken.token)
+  protected getAuthenticatedRequest(url: string, token: string): HttpClient {
+    const request = this.httpClient(url)
+    request.header('Authorization', `OAuth ${token}`)
+    request.header('Accept', 'application/json')
+    request.parseAs('json')
+    return request
+  }
 
-    /**
-     * Allow end user to configure the request. This should be called after your custom
-     * configuration, so that the user can override them (if needed)
-     */
+  /**
+   * Fetches the user info from the Yandex API
+   */
+  protected async getUserInfo(token: string, callback?: (request: ApiRequest) => void) {
+    const url = this.config.userInfoUrl || this.userInfoUrl
+    const request = this.getAuthenticatedRequest(url, token)
+
     if (typeof callback === 'function') {
       callback(request)
     }
 
-    const userInfo = await request.get()
+    const body = await request.get()
+
     return {
-      ...this.makeGetUserInfo(userInfo),
-      token: accessToken,
+      id: body.id,
+      nickName: body.login,
+      name: body.real_name,
+      avatarUrl: body.default_avatar_id
+        ? `https://avatars.yandex.net/get-yapic/${body.default_avatar_id}/islands-200`
+        : '',
+      original: body,
     }
   }
 
-  async userFromToken(
-    accessToken: string,
-    callback?: (request: ApiRequestContract) => void
-  ): Promise<AllyUserContract<{ token: string; type: 'bearer' }>> {
-    const userInfoUrl = this.config.userInfoUrl || this.userInfoUrl
-    const userInfoRequest = this.httpClient(userInfoUrl)
+  /**
+   * Fetches the user email from the Yandex API
+   */
+  protected async getUserEmail(token: string, callback?: (request: ApiRequest) => void) {
+    const url = this.config.userInfoUrl || this.userInfoUrl
+    const request = this.getAuthenticatedRequest(url, token)
 
-    /**
-     * Allow end user to configure the request. This should be called after your custom
-     * configuration, so that the user can override them (if needed)
-     */
     if (typeof callback === 'function') {
-      callback(userInfoRequest)
+      callback(request)
     }
 
-    const userInfo: YandexResponse = await userInfoRequest.get()
-    return {
-      ...this.makeGetUserInfo(userInfo),
-      token: {
-        token: accessToken,
-        type: 'bearer',
-      },
+    const body = await request.get()
+    if (!body.default_email) {
+      throw new Exception(
+        'Cannot request user email. Make sure you are using the "login:email" scope'
+      )
     }
+
+    return body.default_email
   }
 
-  protected makeHttpRequest(token: string, url: string) {
-    return this.httpClient(url)
-      .header('Authorization', `OAuth ${token}`)
-      .header('Accept', 'application/json')
-      .param('format', 'json')
-      .parseAs('json')
+  /**
+   * Find if the current error code is for access denied
+   */
+  accessDenied(): boolean {
+    const error = this.getError()
+    if (!error) {
+      return false
+    }
+
+    return error === 'access_denied'
   }
 
-  protected makeGetUserInfo(userInfo: YandexResponse) {
+  /**
+   * Returns details for the authorized user
+   */
+  async user(callback?: (request: ApiRequestContract) => void) {
+    const token = await this.accessToken(callback)
+    const user = await this.getUserInfo(token.token, callback)
+    const email = await this.getUserEmail(token.token, callback)
+
     return {
-      id: userInfo.id,
-      name: userInfo.real_name,
-      email: userInfo.default_email,
-      nickName: userInfo.login,
+      ...user,
+      email: email,
       emailVerificationState: 'unsupported' as const,
-      avatarUrl: !userInfo.is_avatar_empty
-        ? `https://avatars.yandex.net/get-yapic/${userInfo.default_avatar_id}/islands-200`
-        : null,
-      original: userInfo,
+      token: token,
+    }
+  }
+
+  /**
+   * Finds the user by the access token
+   */
+  async userFromToken(token: string, callback?: (request: ApiRequest) => void) {
+    const user = await this.getUserInfo(token, callback)
+    const email = await this.getUserEmail(token, callback)
+
+    return {
+      ...user,
+      email: email,
+      emailVerificationState: 'unsupported' as const,
+      token: { token, type: 'bearer' as const },
     }
   }
 }
