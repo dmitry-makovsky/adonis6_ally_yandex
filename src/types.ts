@@ -18,4 +18,18 @@ export interface YandexDriverConfig {
   callbackUrl: string
   scopes?: YandexScopes[]
   userInfoUrl?: string
+  accessTokenUrl?: string
+  authorizeUrl?: string
+  userAvatarUrl?: string
+  userAvatarSize?:
+    | 'islands-small'
+    | 'islands-34'
+    | 'islands-middle'
+    | 'islands-50'
+    | 'islands-retina-small'
+    | 'islands-68'
+    | 'islands-75'
+    | 'islands-retina-middle'
+    | 'islands-retina-50'
+    | 'islands-200'
 }

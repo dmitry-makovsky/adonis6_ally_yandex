@@ -1,146 +1,75 @@
-# Ally driver boilerplate
-> A boilerplate for creating custom AdonisJS Ally drivers
+# AdonisJS 6 Ally Yandex Driver
 
-This repo is a starting point to create your custom OAuth2 drivers for [AdonisJS ally](https://docs.adonisjs.com/guides/authentication/social-authentication).
-
-The boilerplate is tailored to create one driver per project and publish it as a package on npm.
+A Yandex driver for [AdonisJS Ally](https://docs.adonisjs.com/guides/social-auth).
 
 ## Getting started
 
-Following are the steps to get started.
+### 1. Install the package
 
-- Fork this repo and then clone it on your local machine.
-- Install all the dependencies using `npm`, `pnpm`, or `yarn` (whatever you prefer).
-- Open the `package.json` file and update the `name`, `description`, and the `author` details.
+Install the package from your command line.
 
-  ```json
-  {
-    "name": "ally-custom-service",
-    "description": "Starter kit to create an Ally driver for an OAuth2 service",
-    "author": ""
-  }
-  ```
-
-## How is the code structured?
-
-The code for the driver is inside the `src` directory. Make sure to change the `YourDriver` keyword references inside the `src/driver.ts` file with the service name for which you are creating the driver. For example, Change `YourDriver` to `AppleDriver` or `InstagramDriver`.
-
-The driver implementation is mainly driven by the config, except for the `user` and the `userFromToken` methods. Both of these methods are specific to the Oauth provider, so you have to implement them yourself.
-
-The `src/driver.ts` file has the following exports.
-
-#### YourDriverAccessToken
-
-The type defines the properties on the access token returned by the driver. You must read your OAuth provider documentation and list all the properties here.
-
-**Do not change the pre-defined `token` and `bearer` properties.**
-
-```ts
-export type YourDriverAccessToken = {
-  token: string
-  type: 'bearer'
-}
+```bash
+npm i adonis6-ally-yandex
+```
+or
+```bash
+yarn add adonis6-ally-yandex
 ```
 
-#### YourDriverScopes
+### 2. Add ENV variables to your `./start/env.ts` file for validation
 
-Define a union of driver scopes accepted by your OAuth provider. You can check out the [official implementations](https://github.com/adonisjs/ally/blob/next/src/types.ts#L237) to see how they are defined.
-
-#### YourDriverConfig
-
-The type defines the configuration options that your driver expects. It must specify the following properties and any additional properties your driver needs to be functional.
-
-```ts
-export type YourDriverConfig = {
-  driver: 'YourDriverName'
-  clientId: string
-  clientSecret: string
-  callbackUrl: string
-  authorizeUrl?: string
-  accessTokenUrl?: string
-  userInfoUrl?: string
-}
+```typescript
+...
+  YANDEX_CLIENT_ID: Env.schema.string(),
+  YANDEX_CLIENT_SECRET: Env.schema.string(),
 ```
 
-#### YourDriver
+### 3. Add ENV variables to your `.env` file, and optionally to your `.env.example` file
 
-The driver implementation is a standard TypeScript class that extends the base `Oauth2Driver` class. The base driver class forces you to define the following instance properties.
+```bash
+YANDEX_CLIENT_ID=your_client_id
+YANDEX_CLIENT_SECRET=your_client_secret
+```
 
-- `authorizeUrl` is the URL for the redirect request. The user is redirected to this URL to authorize the request. Check out provider docs to find this URL.
-- `accessTokenUrl` is used to exchange the authorization code for the access token. Check out provider docs to find this URL.
-- `userInfoUrl` is used to get the user profile information.
-- `codeParamName` is the query string parameter for reading the **authorization code** after redirecting the user back to the callback URL.
-- `errorParamName` is the query string parameter for finding the error after redirecting the user to the callback URL.
-- `stateCookieName` is the cookie name for storing the CSRF token (also known as the state). Make sure the cookie name does not collide with other drivers. A safer option is to prefix the driver name followed by the `oauth_state` keyword.
-- `stateParamName` is the query string parameter name for setting the state during the authorization redirect.
-- `scopeParamName` is the query string parameter name for sending the scopes during the authorization redirect.
-- `scopesSeparator` is the character used for separating multiple parameters.
+### 4. Add the provider to allyConfig in your `./config/ally.ts` file
 
-#### YourDriverService
-A factory function to reference the driver within the `config/ally.ts` file of an AdonisJS application. For example:
+```typescript
+import { YandexDriverService } from 'adonis6_ally_yandex'
 
-```ts
-import { YourDriverService } from 'your-package-name'
+const allyConfig = defineConfig({
+  ...
+  yandex: YandexDriverService({
+    clientId: env.get('YANDEX_CLIENT_ID'),
+    clientSecret: env.get('YANDEX_CLIENT_SECRET'),
+    // Define here your callback URL, e.g.:
+    callbackUrl: `${env.get('APP_URL')}/auth/yandex/callback`,
 
-defineConfig({
-  github: YourDriverService({
-    clientId: env.get('GITHUB_CLIENT_ID')!,
-    clientSecret: env.get('GITHUB_CLIENT_SECRET')!,
-    callbackUrl: '',
+    //
+    // Additional options
+    //
+    // Use additional scopes if needed (default: ['login:email', 'login:info', 'login:avatar'])
+    // e.g:
+    scopes: ['login:email', 'login:info', 'login:avatar', 'login:birthday', 'login:default_phone'],
+
+    // Use custom url getting user info (default: 'https://login.yandex.ru/info'):
+    userInfoUrl: 'https://login.yandex.ru/info',
+
+    // Use custom url getting access token (default: 'https://oauth.yandex.ru/token') e.g.:
+    accessTokenUrl: 'https://oauth.yandex.com/token',
+
+    // Use custom url getting authorize token (default: 'https://oauth.yandex.ru/authorize') e.g.:
+    authorizeUrl: 'https://oauth.yandex.com/authorize',
+
+    // Use custom url getting user avatar (default: 'https://avatars.yandex.net/get-yapic'):
+    userAvatarUrl: 'https://avatars.yandex.net/get-yapic',
+
+    // Use custom url getting user avatar size (default: 'islands-200') 
+    // All sizes you can find here: https://yandex.ru/dev/id/doc/ru/user-information#avatar-access
+    // e.g.:
+    userAvatarSize: 'islands-200',
   }),
+  ...
 })
 ```
 
-## Development checklist
 
-- [ ] I have renamed all `YourDriver` references to a more meaningful name inside the `src/driver.ts` file.
-- [ ] I have defined the `authorizeUrl` class property.
-- [ ] I have defined the `accessTokenUrl` class property.
-- [ ] I have defined the `userInfoUrl` class property.
-- [ ] I have defined the `codeParamName` class property.
-- [ ] I have defined the `errorParamName` class property.
-- [ ] I have defined the `stateCookieName` class property.
-- [ ] I have defined the `stateParamName` class property.
-- [ ] I have defined the `scopeParamName` class property.
-- [ ] I have defined the `scopesSeparator` class property.
-- [ ] I have implemented the `accessDenied` class method.
-- [ ] I have implemented the `user` class method.
-- [ ] I have implemented the `userFromToken` class method.
-
-## Testing the driver
-
-You can test the driver by installing it locally inside your AdonisJS application. Following are the steps you need to perform.
-
-- Compile the TypeScript code to JavaScript using the `npm run build` script.
-- `cd` into your AdonisJS project and install the package locally using `npm i path/to/your/driver/package`.
-- Finally, reference the driver using the `YourDriverService` factory function inside the `config/ally.ts` file.
-
-## FAQ's
-
-### How do I define extra params during redirect?
-
-You can configure the redirect request by implementing the `configureRedirectRequest` method on the driver class. The method is already pre-defined and commented out.
-
-```ts
-protected configureRedirectRequest(request: RedirectRequest<YourDriverScopes>) {
-  request.param('key', 'value')
-}
-```
-
-### How do I define extra fields/params for the access token request?
-
-You can configure the access token request by implementing the `configureAccessTokenRequest` method on the driver class. The method is already pre-defined and commented out.
-
-```ts
-protected configureAccessTokenRequest(request: ApiRequest) {
-  // Request body
-  request.field('key', 'value')
-
-  // Query param
-  request.param('key', 'value')
-}
-```
-
-## Share with others
-
-Are you excited about sharing your work with others? Submit your package to the [awesome-adonisjs](https://github.com/adonisjs-community/awesome-adonisjs) repo.

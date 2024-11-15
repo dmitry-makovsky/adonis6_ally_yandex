@@ -22,6 +22,9 @@ export class YandexDriver extends Oauth2Driver<YandexToken, YandexScopes> {
   protected authorizeUrl = 'https://oauth.yandex.ru/authorize'
   protected userInfoUrl = 'https://login.yandex.ru/info'
 
+  protected userAvatarUrl = 'https://avatars.yandex.net/get-yapic'
+  protected userAvatarSize = 'islands-200'
+
   /**
    * The param name for the authorization code
    */
@@ -96,6 +99,8 @@ export class YandexDriver extends Oauth2Driver<YandexToken, YandexScopes> {
    */
   protected async getUserInfo(token: string, callback?: (request: ApiRequest) => void) {
     const url = this.config.userInfoUrl || this.userInfoUrl
+    const userAvatarUrl = this.config.userAvatarUrl || this.userAvatarUrl
+    const userAvatarSize = this.config.userAvatarSize || this.userAvatarSize
     const request = this.getAuthenticatedRequest(url, token)
 
     if (typeof callback === 'function') {
@@ -104,13 +109,12 @@ export class YandexDriver extends Oauth2Driver<YandexToken, YandexScopes> {
 
     const body = await request.get()
 
+    const avatarUrl = `${userAvatarUrl}/${body.default_avatar_id}/${userAvatarSize}`
     return {
       id: body.id,
       nickName: body.login,
       name: body.real_name,
-      avatarUrl: body.default_avatar_id
-        ? `https://avatars.yandex.net/get-yapic/${body.default_avatar_id}/islands-200`
-        : '',
+      avatarUrl: body.default_avatar_id ? avatarUrl : '',
       original: body,
     }
   }
