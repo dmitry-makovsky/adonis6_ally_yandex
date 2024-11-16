@@ -1,7 +1,7 @@
 {
 	"name": "adonis6_ally_yandex",
 	"description": "AdonisJS 6 Ally Yandex Driver",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"main": "build/index.js",
 	"type": "module",
 	"files": ["build/index.js", "build/index.d.ts", "build/src"],
