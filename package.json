@@ -2,7 +2,7 @@
 	"name": "adonis6_ally_yandex",
 	"description": "AdonisJS 6 Ally Yandex Driver",
 	"version": "1.0.0",
-	"main": "index.js",
+	"main": "build/index.js",
 	"type": "module",
 	"files": ["build/index.js", "build/index.d.ts", "build/src"],
 	"scripts": {
@@ -36,6 +36,7 @@
 		"yandex",
 		"adonis6"
 	],
+	"types": "build/index.d.ts",
 	"eslintConfig": {
 		"extends": "@adonisjs/eslint-config/package"
 	},
