@@ -1,7 +1,7 @@
 {
 	"name": "adonis6_ally_yandex",
 	"description": "AdonisJS 6 Ally Yandex Driver",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"main": "build/index.js",
 	"type": "module",
 	"files": ["build/index.js", "build/index.d.ts", "build/src"],
@@ -26,8 +26,13 @@
 		"@adonisjs/ally": "^5.0.0-7",
 		"@adonisjs/core": "^6.1.5-32"
 	},
-	"author": "Dmitry Makovsky",
+	"author": "Dmitry Makovsky <dima@makovsky.me>",
 	"license": "MIT",
+	"homepage": "https://github.com/dmitry-makovsky/adonis6_ally_yandex#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dmitry-makovsky/adonis6_ally_yandex.git"
+	},
 	"keywords": [
 		"social-auth",
 		"adonisjs-ally",
