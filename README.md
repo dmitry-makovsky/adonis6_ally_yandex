@@ -9,29 +9,21 @@ A Yandex driver for [AdonisJS Ally](https://docs.adonisjs.com/guides/social-auth
 Install the package from your command line.
 
 ```bash
-npm i adonis6-ally-yandex
+npm i adonis6_ally_yandex
 ```
 or
 ```bash
-yarn add adonis6-ally-yandex
+yarn add adonis6_ally_yandex
 ```
 
-### 2. Add ENV variables to your `./start/env.ts` file for validation
 
-```typescript
-...
-  YANDEX_CLIENT_ID: Env.schema.string(),
-  YANDEX_CLIENT_SECRET: Env.schema.string(),
-```
-
-### 3. Add ENV variables to your `.env` file, and optionally to your `.env.example` file
+### 2. Configure the package
 
 ```bash
-YANDEX_CLIENT_ID=your_client_id
-YANDEX_CLIENT_SECRET=your_client_secret
+node ace add adonis6_ally_yandex
 ```
 
-### 4. Add the provider to allyConfig in your `./config/ally.ts` file
+### 3. Add the provider to allyConfig in your `./config/ally.ts` file
 
 ```typescript
 import { YandexDriverService } from 'adonis6_ally_yandex'
@@ -72,4 +64,23 @@ const allyConfig = defineConfig({
 })
 ```
 
+## Manual configuration
 
+If you don't want to configure the driver automatically:
+
+### 1. Add ENV variables to your `./start/env.ts` file for validation
+
+```typescript
+...
+  YANDEX_CLIENT_ID: Env.schema.string(),
+  YANDEX_CLIENT_SECRET: Env.schema.string(),
+```
+
+### 2. Add ENV variables to your `.env` file, and optionally to your `.env.example` file
+
+```bash
+YANDEX_CLIENT_ID=your_client_id
+YANDEX_CLIENT_SECRET=your_client_secret
+```
+
+And after that, add the provider to allyConfig as indicated in step 3 of the automatic configuration above
